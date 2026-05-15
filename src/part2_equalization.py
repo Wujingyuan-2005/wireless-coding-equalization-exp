@@ -39,7 +39,25 @@ def estimate_zf_equalizer(channel, num_taps):
         raise ValueError('num_taps 必须为正整数')
 
     # TODO: 构造卷积矩阵并求解 ZF 均衡器抽头。
-    raise NotImplementedError('请实现 ZF 均衡器估计')
+    from scipy.linalg import convolution_matrix # 可能需要导入此工具或自己构造
+    # 1. 构造卷积矩阵 A
+    # channel 长度为 L，taps 长度为 N，卷积结果长度为 L + N - 1
+    L = len(channel)
+    A = np.zeros((L + num_taps - 1, num_taps))
+    for i in range(num_taps):
+        A[i:i+L, i] = channel
+
+    # 2. 构造目标冲激响应 d
+    d = np.zeros(L + num_taps - 1)
+    delay = num_taps // 2  # 通常将 1 放在中心位置
+    d[delay] = 1.0
+
+    # 3. 使用最小二乘解求 taps
+    taps, _, _, _ = np.linalg.lstsq(A, d, rcond=None)
+
+    # 4. 返回 taps
+    return taps
+    #raise NotImplementedError('请实现 ZF 均衡器估计')
 
 
 def apply_fir_filter(signal, taps):
@@ -59,7 +77,10 @@ def apply_fir_filter(signal, taps):
         raise ValueError('signal 和 taps 必须是一维数组')
 
     # TODO: 使用 np.convolve，并截取与 signal 等长的输出。
-    raise NotImplementedError('请实现 FIR 滤波')
+    # 建议实现步骤极其简单：
+    filtered_signal = np.convolve(signal, taps, mode='full')
+    return filtered_signal[:len(signal)]
+    #raise NotImplementedError('请实现 FIR 滤波')
 
 
 def lms_equalizer(rx_train, tx_train, num_taps, step_size=0.01):
@@ -90,7 +111,32 @@ def lms_equalizer(rx_train, tx_train, num_taps, step_size=0.01):
         raise ValueError('num_taps 必须为正整数')
 
     # TODO: 实现 LMS 自适应均衡训练。
-    raise NotImplementedError('请实现 LMS 均衡器')
+    # 1. 初始化 taps，中心抽头为1，其余为0
+    taps = np.zeros(num_taps)
+    taps[num_taps // 2] = 1.0
+
+    errors = []
+    # 2. 从第 num_taps - 1 个样本开始迭代
+    for i in range(num_taps - 1, len(rx_train)):
+        # 3. 构造当前输入向量 x (注意时间反转，越新的样本在越前面)
+        x = rx_train[i : i - num_taps : -1] if i - num_taps >= -1 else rx_train[i::-1]
+        # 如果切片不够长(边界情况)，通常补零，但从 num_taps-1 开始切片长度刚好是 num_taps
+        if len(x) < num_taps:
+            x = np.pad(x, (0, num_taps - len(x)))
+
+        # 4. 计算输出 y
+        y = np.dot(taps, x)
+        
+        # 5. 计算误差 e
+        d = tx_train[i - num_taps // 2] # 对齐中心延迟
+        e = d - y
+        errors.append(e)
+        
+        # 6. 更新 taps
+        taps = taps + step_size * e * x
+
+    return taps, np.array(errors)
+    #raise NotImplementedError('请实现 LMS 均衡器')
 
 
 def run_equalization_demo():

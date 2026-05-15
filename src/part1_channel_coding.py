@@ -49,7 +49,16 @@ def hamming74_encode(bits):
         raise ValueError('bits 只能包含 0 或 1')
 
     # TODO: 将 bits reshape 为 (-1, 4)，再与 HAMMING_G 相乘并对 2 取模。
-    raise NotImplementedError('请实现 Hamming(7,4) 编码')
+    # 建议实现步骤：
+    # 1. 将 `bits` reshape 成形状 `(-1, 4)`
+    blocks = bits.reshape(-1, 4)
+    # 2. 计算 `blocks @ HAMMING_G`
+    encoded_blocks = np.dot(blocks, HAMMING_G)
+    # 3. 对结果取模 2
+    encoded_blocks = encoded_blocks % 2
+    # 4. 将二维数组 flatten 成一维数组返回
+    return encoded_blocks.flatten()
+    #raise NotImplementedError('请实现 Hamming(7,4) 编码')
 
 
 def hamming74_syndrome(codewords):
@@ -71,7 +80,17 @@ def hamming74_syndrome(codewords):
         raise ValueError('每个 Hamming(7,4) 码字长度必须为 7')
 
     # TODO: 计算 s = r H^T mod 2。
-    raise NotImplementedError('请实现伴随式计算')
+    # 建议实现步骤：
+     # 1. 如果输入是一维数组，reshape 为 `(-1, 7)`
+    if codewords.ndim == 1:
+        codewords = codewords.reshape(-1, 7)
+    # 2. 计算 `codewords @ HAMMING_H.T`
+    syndrome = np.dot(codewords, HAMMING_H.T)
+    # 3. 对结果取模 2
+    syndrome = syndrome % 2
+    # 4. 返回伴随式矩阵
+    return syndrome
+    #raise NotImplementedError('请实现伴随式计算')
 
 
 def hamming74_decode(received):
@@ -95,7 +114,26 @@ def hamming74_decode(received):
         raise ValueError('received 必须是一维数组，长度为 7 的倍数')
 
     # TODO: 使用 hamming74_syndrome 完成单比特纠错，并返回前 4 个信息位。
-    raise NotImplementedError('请实现 Hamming(7,4) 译码')
+    # 建议实现步骤：
+    # 1. 将 `received` reshape 为 `(-1, 7)`，复制一份避免修改原数据
+    recv_blocks = received.copy().reshape(-1, 7)
+    # 2. 调用上面的函数计算伴随式
+    syndromes = hamming74_syndrome(recv_blocks)
+
+    # 3 & 4. 寻找非零伴随式并翻转对应比特
+    for i in range(len(recv_blocks)):
+        s = syndromes[i]
+        if np.any(s != 0): # 检测到错误
+        # 遍历校验矩阵H的每一列，寻找与伴随式匹配的列
+            for col_idx in range(7):
+                if np.array_equal(s, HAMMING_H[:, col_idx]):
+                    # 找到错误位置，翻转该比特 (0变1，1变0)
+                    recv_blocks[i, col_idx] ^= 1 
+                    break
+
+    # 5. 取每个码字前 4 位 (信息位) 并 flatten 返回
+    return recv_blocks[:, :4].flatten()
+    #raise NotImplementedError('请实现 Hamming(7,4) 译码')
 
 
 def convolutional_encode(bits):
@@ -109,6 +147,7 @@ def convolutional_encode(bits):
         raise ValueError('bits 只能包含 0 或 1')
 
     # TODO: 选做任务，可参考课件第6章卷积码部分。
+        
     raise NotImplementedError('选做：请实现卷积码编码')
 
 
